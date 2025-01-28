@@ -358,3 +358,5 @@ MigrationBackup/
 
 # nohup
 nohup.out
+
+.env

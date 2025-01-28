@@ -1,0 +1,14 @@
+version: '3.9'
+services:
+  app:
+    user: $CONTAINER_USERNAME
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: devcontainer
+      args:
+        USERNAME: $CONTAINER_USERNAME
+    volumes:
+      - .:/src:cached
+      - .devcache:/home/$CONTAINER_USERNAME
+    command: /bin/sh -c "while sleep 1000; do :; done"

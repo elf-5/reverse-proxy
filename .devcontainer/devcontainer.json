@@ -1,0 +1,27 @@
+{
+    "name": "YARP",
+    "dockerComposeFile": [
+        "../docker-compose.yml",
+        "docker-compose.yml"
+    ],
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-dotnettools.csharp",
+                "trottero.dotnetwatchattach",
+                "jcamp.dotnet-test-provider-explorer",
+                "urbanoanderson.vscode-coverlet",
+                "ryanluker.vscode-coverage-gutters",
+                "github.copilot",
+                "eamodio.gitlens",
+                "ms-mssql.mssql",
+                "ms-dotnettools.csdevkit",
+                "fernandoescolar.vscode-solution-explorer"
+            ]
+        }
+    },
+    "service": "app",
+    "workspaceFolder": "/src",
+    "postCreateCommand": "rm -rf $HOME/.local || true",
+    "remoteUser": "${localEnv:CONTAINER_USERNAME}"
+}
