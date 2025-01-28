@@ -15,7 +15,7 @@ using Yarp.Kubernetes.Controller.Services;
 namespace Yarp.Kubernetes.Controller.Caching;
 
 /// <summary>
-/// ICache service interface holds onto least amount of data necessary
+/// ICache service interface holds onto the least amount of data necessary
 /// for <see cref="IReconciler"/> to process work.
 /// </summary>
 public class IngressCache : ICache
@@ -47,12 +47,10 @@ public class IngressCache : ICache
 
         if (!string.Equals(_options.ControllerClass, ingressClass.Spec.Controller, StringComparison.OrdinalIgnoreCase))
         {
-#pragma warning disable CA1303 // Do not pass literals as localized parameters
             _logger.LogInformation(
                 "Ignoring {IngressClassNamespace}/{IngressClassName} as the spec.controller is not the same as this ingress",
                 ingressClass.Metadata.NamespaceProperty,
                 ingressClass.Metadata.Name);
-#pragma warning restore CA1303 // Do not pass literals as localized parameters
             return;
         }
 

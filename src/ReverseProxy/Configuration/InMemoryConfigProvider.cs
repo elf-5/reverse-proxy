@@ -64,7 +64,7 @@ public sealed class InMemoryConfigProvider : IProxyConfigProvider
     /// <summary>
     /// Implementation of IProxyConfig which is a snapshot of the current config state. The data for this class should be immutable.
     /// </summary>
-    private class InMemoryConfig : IProxyConfig
+    private sealed class InMemoryConfig : IProxyConfig
     {
         // Used to implement the change token for the state
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
@@ -90,12 +90,12 @@ public sealed class InMemoryConfigProvider : IProxyConfigProvider
         public IReadOnlyList<RouteConfig> Routes { get; }
 
         /// <summary>
-        /// A snapshot of the list of Clusters which are collections of interchangable destination endpoints
+        /// A snapshot of the list of Clusters which are collections of interchangeable destination endpoints
         /// </summary>
         public IReadOnlyList<ClusterConfig> Clusters { get; }
 
         /// <summary>
-        /// Fired to indicate the the proxy state has changed, and that this snapshot is now stale
+        /// Fired to indicate the proxy state has changed, and that this snapshot is now stale
         /// </summary>
         public IChangeToken ChangeToken { get; }
 

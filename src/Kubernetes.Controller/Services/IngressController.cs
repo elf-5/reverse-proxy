@@ -19,7 +19,7 @@ namespace Yarp.Kubernetes.Controller.Services;
 
 /// <summary>
 /// Controller receives notifications from informers. The data which is needed for processing is
-/// saved in a <see cref="ICache"/> instance and resources which need to be reconciled are
+/// saved in an <see cref="ICache"/> instance and resources which need to be reconciled are
 /// added to an <see cref="ProcessingRateLimitedQueue{QueueItem}"/>. The background task dequeues
 /// items and passes them to an <see cref="IReconciler"/> service for processing.
 /// </summary>
@@ -30,7 +30,7 @@ public class IngressController : BackgroundHostedService
     private readonly IReconciler _reconciler;
 
     private bool _registrationsReady;
-    private readonly IWorkQueue<QueueItem> _queue;
+    private readonly WorkQueue<QueueItem> _queue;
     private readonly QueueItem _ingressChangeQueueItem;
 
     public IngressController(
@@ -193,7 +193,7 @@ public class IngressController : BackgroundHostedService
             await registration.ReadyAsync(cancellationToken).ConfigureAwait(false);
         }
 
-        // At this point we know that all of the Ingress and Endpoint caches are at least in sync
+        // At this point we know that all the Ingress and Endpoint caches are at least in sync
         // with cluster's state as of the start of this controller.
         _registrationsReady = true;
         NotificationIngressChanged();

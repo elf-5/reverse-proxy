@@ -26,10 +26,10 @@ namespace Yarp.ReverseProxy.Forwarder;
 /// </summary>
 internal sealed class HttpForwarder : IHttpForwarder
 {
-    private static readonly string WebSocketName = "websocket";
+    private const string WebSocketName = "websocket";
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(100);
     private static readonly Version DefaultVersion = HttpVersion.Version20;
-    private static readonly HttpVersionPolicy DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower;
+    private const HttpVersionPolicy DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower;
     private readonly ILogger _logger;
     private readonly TimeProvider _timeProvider;
 
@@ -277,7 +277,14 @@ internal sealed class HttpForwarder : IHttpForwarder
             // and clients misbehave if the initial headers response does not indicate stream end.
 
             // :: Step 7-B: Copy response body Client ◄-- Proxy ◄-- Destination
-            var (responseBodyCopyResult, responseBodyException) = await CopyResponseBodyAsync(destinationResponse.Content, context.Response.Body, activityCancellationSource);
+            StreamCopyResult responseBodyCopyResult;
+            Exception? responseBodyException;
+
+            using (var destinationResponseStream = await destinationResponse.Content.ReadAsStreamAsync(activityCancellationSource.Token))
+            {
+                // The response content-length is enforced by the server.
+                (responseBodyCopyResult, responseBodyException) = await StreamCopier.CopyAsync(isRequest: false, destinationResponseStream, context.Response.Body, StreamCopier.UnknownLength, _timeProvider, activityCancellationSource, activityCancellationSource.Token);
+            }
 
             if (responseBodyCopyResult != StreamCopyResult.Success)
             {
@@ -299,7 +306,7 @@ internal sealed class HttpForwarder : IHttpForwarder
             }
 
             // :: Step 9: Wait for completion of step 2: copying request body Client --► Proxy --► Destination
-            // NOTE: It is possible for the request body to NOT be copied even when there was an incoming requet body,
+            // NOTE: It is possible for the request body to NOT be copied even when there was an incoming request body,
             // e.g. when the request includes header `Expect: 100-continue` and the destination produced a non-1xx response.
             // We must only wait for the request body to complete if it actually started,
             // otherwise we run the risk of waiting indefinitely for a task that will never complete.
@@ -502,7 +509,7 @@ internal sealed class HttpForwarder : IHttpForwarder
         // If we generate an HttpContent without a Content-Length then for HTTP/1.1 HttpClient will add a Transfer-Encoding: chunked header
         // even if it's a GET request. Some servers reject requests containing a Transfer-Encoding header if they're not expecting a body.
         // Try to be as specific as possible about the client's intent to send a body. The one thing we don't want to do is to start
-        // reading the body early because that has side-effects like 100-continue.
+        // reading the body early because that has side effects like 100-continue.
         var request = context.Request;
         var hasBody = true;
         var contentLength = request.Headers.ContentLength;
@@ -541,7 +548,7 @@ internal sealed class HttpForwarder : IHttpForwarder
         {
             hasBody = contentLength > 0;
         }
-        // Kestrel HTTP/2: There are no required headers that indicate if there is a request body so we need to sniff other fields.
+        // Kestrel HTTP/2: There are no required headers that indicate if there is a request body, so we need to sniff other fields.
         else if (!ProtocolHelper.IsHttp2OrGreater(request.Protocol))
         {
             hasBody = false;
@@ -828,7 +835,7 @@ internal sealed class HttpForwarder : IHttpForwarder
                 Debug.Assert(success);
                 var accept = context.Response.Headers[HeaderNames.SecWebSocketAccept];
                 var expectedAccept = ProtocolHelper.CreateSecWebSocketAccept(key.ToString());
-                if (!string.Equals(expectedAccept, accept, StringComparison.Ordinal)) // Base64 is case sensitive
+                if (!string.Equals(expectedAccept, accept, StringComparison.Ordinal)) // Base64 is case-sensitive
                 {
                     context.Response.Clear();
                     context.Response.StatusCode = StatusCodes.Status502BadGateway;
@@ -875,28 +882,11 @@ internal sealed class HttpForwarder : IHttpForwarder
         return ForwarderError.None;
     }
 
-    private async ValueTask<(StreamCopyResult, Exception?)> CopyResponseBodyAsync(HttpContent destinationResponseContent, Stream clientResponseStream,
-        ActivityCancellationTokenSource activityCancellationSource)
-    {
-        // SocketHttpHandler and similar transports always provide an HttpContent object, even if it's empty.
-        // In 3.1 this is only likely to return null in tests.
-        // As of 5.0 HttpResponse.Content never returns null.
-        // https://github.com/dotnet/runtime/blame/8fc68f626a11d646109a758cb0fc70a0aa7826f1/src/libraries/System.Net.Http/src/System/Net/Http/HttpResponseMessage.cs#L46
-        if (destinationResponseContent is not null)
-        {
-            using var destinationResponseStream = await destinationResponseContent.ReadAsStreamAsync(activityCancellationSource.Token);
-            // The response content-length is enforced by the server.
-            return await StreamCopier.CopyAsync(isRequest: false, destinationResponseStream, clientResponseStream, StreamCopier.UnknownLength, _timeProvider, activityCancellationSource, activityCancellationSource.Token);
-        }
-
-        return (StreamCopyResult.Success, null);
-    }
-
     private async ValueTask<ForwarderError> HandleResponseBodyErrorAsync(HttpContext context, StreamCopyHttpContent? requestContent, StreamCopyResult responseBodyCopyResult, Exception responseBodyException, ActivityCancellationTokenSource requestCancellationSource)
     {
         if (requestContent is not null && requestContent.Started)
         {
-            var alreadyFinished = requestContent.ConsumptionTask.IsCompleted == true;
+            var alreadyFinished = requestContent.ConsumptionTask.IsCompleted;
 
             if (!alreadyFinished)
             {
@@ -930,7 +920,7 @@ internal sealed class HttpForwarder : IHttpForwarder
             return error;
         }
 
-        // The response has already started, we must forcefully terminate it so the client doesn't get the
+        // The response has already started, we must forcefully terminate it so the client doesn't get
         // the mistaken impression that the truncated response is complete.
         ResetOrAbort(context, isCancelled: responseBodyCopyResult == StreamCopyResult.Canceled);
 
